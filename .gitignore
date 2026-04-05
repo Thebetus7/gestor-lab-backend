@@ -1,0 +1,64 @@
+# ─── Entorno virtual ─────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+.env/
+
+# ─── Variables de entorno ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# ─── Django ───────────────────────────────────────────────────────────────────
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+
+# ─── Distribución / empaquetado ───────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+MANIFEST
+
+# ─── Tests y cobertura ────────────────────────────────────────────────────────
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# ─── Migraciones (opcional: descomenta si no quieres versionar migraciones) ───
+# */migrations/
+
+# ─── Caché y temporales ──────────────────────────────────────────────────────
+.cache/
+*.swp
+*.swo
+*.tmp
+
+# ─── IDEs y editores ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ─── Sistema operativo ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
