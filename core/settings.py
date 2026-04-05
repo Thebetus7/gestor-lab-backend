@@ -30,6 +30,7 @@ INSTALLED_APPS = [
 
     # Local
     'usuarios',
+    'laboratorio',
 ]
 
 MIDDLEWARE = [
