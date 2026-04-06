@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Actividad, Tarea, ActividadTarea
+from .models import Actividad, Tarea, ActividadTarea, Laboratorio, UsuarioActividad
 
 class TareaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -27,18 +27,20 @@ class ActividadDetailSerializer(serializers.ModelSerializer):
 
 class ActividadCreateSerializer(serializers.Serializer):
     descripcion = serializers.CharField(required=False, allow_blank=True)
-    tiempo = serializers.TimeField(required=False, allow_null=True)
     tareas = serializers.ListField(
         child=serializers.CharField(), required=False, allow_empty=True
+    )
+    laboratorios = serializers.ListField(
+        child=serializers.IntegerField(), required=False, allow_empty=True
     )
 
     def create(self, validated_data):
         tareas_data = validated_data.pop('tareas', [])
+        laboratorios_ids = validated_data.pop('laboratorios', [])
         
-        # 1. Crear Actividad
+        # 1. Crear Actividad (sin campo tiempo)
         actividad = Actividad.objects.create(
             descripcion=validated_data.get('descripcion'),
-            tiempo=validated_data.get('tiempo')
         )
 
         # 2. Crear Tareas y ActividadTarea por cada string recibido
@@ -56,5 +58,18 @@ class ActividadCreateSerializer(serializers.Serializer):
                     estado='espera', # Estado inicial por defecto
                     observacion=''
                 )
+
+        # 3. Relacionar con laboratorios (UsuarioActividad)
+        user = self.context['request'].user
+        for lab_id in laboratorios_ids:
+            try:
+                lab = Laboratorio.objects.get(id=lab_id)
+                UsuarioActividad.objects.create(
+                    id_user=user,
+                    id_actividad=actividad,
+                    id_lab=lab
+                )
+            except Laboratorio.DoesNotExist:
+                continue
 
         return actividad
