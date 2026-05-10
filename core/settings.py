@@ -29,8 +29,12 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # Local
-    'usuarios',
-    'laboratorio',
+    'usuarios.autenticacion',
+    'usuarios.auxiliar',
+    'laboratorio.laboratorio',
+    'laboratorio.actividad',
+    'laboratorio.reserva',
+    'laboratorio.notificacion',
 ]
 
 MIDDLEWARE = [
@@ -79,7 +83,7 @@ DATABASES = {
 }
 
 # Custom user model
-AUTH_USER_MODEL = 'usuarios.CustomUser'
+AUTH_USER_MODEL = 'usuarios_autenticacion.CustomUser'
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

@@ -57,6 +57,54 @@ python manage.py runserver
 ```
 El API estará disponible en `http://127.0.0.1:8000/`.
 
+## Manejo de la Base de Datos (Reset)
+
+Para realizar un "Reset Total" (equivalente a un fresh en Laravel) y limpiar todo el esquema de PostgreSQL, ejecuta la siguiente secuencia de comandos:
+
+```powershell
+# 1. Ejecutar el script para limpiar el esquema de la base de datos
+python reset_db.py
+
+# 2. Recrear los archivos de migración (detectará todas las sub-apps)
+python manage.py makemigrations
+
+# 3. Aplicar las nuevas migraciones a la base de datos limpia
+python manage.py migrate
+```
+
+Si necesitas reiniciar la base de datos por completo (pasos detallados), sigue estos pasos para asegurar una limpieza total:
+
+### 1. Limpieza de Migraciones (Opcional)
+Si has realizado cambios estructurales profundos y quieres que el historial de migraciones sea "limpio", puedes borrar los archivos de migración previos. 
+
+**En Windows (PowerShell):**
+```powershell
+# Borra todos los archivos de migraciones generados (excepto los __init__.py)
+Get-ChildItem -Path "**/migrations/*.py" -Exclude "__init__.py" | Remove-Item
+```
+
+### 2. Reiniciar el Esquema en PostgreSQL
+Para borrar todas las tablas de forma rápida, puedes resetear el esquema `public`. Abre tu terminal de PostgreSQL (`psql`) o tu herramienta gráfica (pgAdmin) y ejecuta:
+
+```sql
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+```
+
+### 3. Regenerar y Aplicar
+Una vez limpia la base de datos, vuelve a generar la estructura:
+
+```powershell
+# Detectar cambios y crear archivos de migración
+python manage.py makemigrations
+
+# Crear las tablas en la base de datos
+python manage.py migrate
+
+# Volver a cargar los usuarios base
+python manage.py seed_users
+```
+
 ## Credenciales Semilla (Variables Fijas de Ejemplo)
 Una vez conectada la base de datos de Postgres y corridas las migraciones, se deben popular los usuarios y roles corriendo el comando personalizado mencionado arriba:
 
