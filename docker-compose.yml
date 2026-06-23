@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: gestorlab_db
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=SW2_GestorLab_1_26
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123456789
+    ports:
+      - "5432:5432"
+
+  web:
+    build: .
+    container_name: gestorlab_backend
+    restart: always
+    command: gunicorn --bind 0.0.0.0:8000 core.wsgi:application
+    volumes:
+      - .:/app
+    ports:
+      - "80:8000"  # Expone el puerto 80 del servidor hacia el 8000 del contenedor
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=TU_LLAVE_SECRETA_SUPER_SEGURA_PROD
+      - DB_NAME=SW2_GestorLab_1_26
+      - DB_USER=postgres
+      - DB_PASSWORD=123456789
+      - DB_HOST=db  # Apunta al nombre del servicio de la BD
+      - DB_PORT=5432
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
