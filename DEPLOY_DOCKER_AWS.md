@@ -45,8 +45,6 @@ CMD ["gunicorn", "--bind", "0.0.0.0:8000", "core.wsgi:application"]
 ### 📄 `docker-compose.yml`
 Crea este archivo en la raíz del backend para orquestar la app y la base de datos PostgreSQL:
 ```yaml
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
@@ -112,8 +110,8 @@ Conéctate por SSH a la EC2 y ejecuta:
 # Actualizar el sistema
 sudo dnf update -y
 
-# Instalar Docker y Git
-sudo dnf install docker git -y
+# Instalar Docker, Buildx (requerido para compilar imágenes) y Git
+sudo dnf install docker docker-buildx-plugin git -y
 
 # Iniciar e instalar el servicio de Docker al arranque
 sudo systemctl start docker
@@ -123,7 +121,9 @@ sudo systemctl enable docker
 sudo usermod -aG docker ec2-user
 ```
 > [!IMPORTANT]
-> Cierra la conexión SSH actual ejecutando `exit` y conéctate nuevamente para que el cambio de grupo de Docker surta efecto.
+> Para aplicar el cambio de grupo de Docker puedes:
+> 1. Cerrar la conexión SSH actual ejecutando `exit` y conectarte de nuevo.
+> 2. **O ejecutar en la terminal activa:** `newgrp docker` (esto aplicará los permisos de forma inmediata en la sesión actual).
 
 ### Instalar Docker Compose:
 ```bash
@@ -133,9 +133,19 @@ sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-
 # Asignar permisos de ejecución
 sudo chmod +x /usr/local/bin/docker-compose
 
-# Verificar versión
+# Verificar versiones
 docker-compose --version
+docker buildx version
 ```
+
+> Si `docker buildx version` falla o muestra una versión menor a `0.17.0`, instala Buildx manualmente:
+> ```bash
+> sudo mkdir -p /usr/local/lib/docker/cli-plugins
+> sudo curl -L "https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64" \
+>   -o /usr/local/lib/docker/cli-plugins/docker-buildx
+> sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+> docker buildx version
+> ```
 
 ---
 
@@ -150,19 +160,53 @@ docker-compose --version
    ```bash
    docker-compose up -d --build
    ```
-3. Ejecuta las migraciones y recopila estáticos dentro del contenedor de Django:
+3. Ejecuta las migraciones, carga los usuarios semilla y recopila estáticos dentro del contenedor de Django:
    ```bash
    # Correr migraciones de base de datos
    docker-compose exec web python manage.py migrate
    
+   # Crear usuarios y roles iniciales (admin, operador, auxiliares)
+   docker-compose exec web python manage.py seed_users
+   
    # Recopilar archivos estáticos
    docker-compose exec web python manage.py collectstatic --noinput
-   
-   # Opcional: Crear superusuario
-   docker-compose exec web python manage.py createsuperuser
    ```
 
+   > **Nota:** El comando `seed_users` (`usuarios/autenticacion/management/commands/seed_users.py`) es **obligatorio** en el primer despliegue. Crea los grupos `admin`, `operador` y `auxiliar`, y los usuarios iniciales del sistema (`admin`, `operador_test`, `auxBeto`, `auxJuan`). Si ya existen, actualiza sus credenciales sin duplicarlos.
+
 ¡Listo! Tu backend está en línea en `http://IP_PUBLICA_EC2/api`.
+
+---
+
+## ⚠️ Solución de problemas
+
+### `compose build requires buildx 0.17.0 or later`
+
+**Qué significa:** Docker Compose intentó **construir la imagen** de tu backend (`build: .` en `docker-compose.yml`), pero el servidor no tiene **Docker Buildx** instalado o la versión es muy antigua. Sin Buildx, el build no puede continuar y los contenedores no se levantan.
+
+**Cómo solucionarlo** (ejecuta en la EC2):
+
+```bash
+# Opción A: paquete de Amazon Linux (recomendado)
+sudo dnf install docker-buildx-plugin -y
+
+# Opción B: si la opción A no funciona, instalar Buildx manualmente
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo curl -L "https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+
+# Verificar que Buildx quedó instalado (debe mostrar v0.17.0 o superior)
+docker buildx version
+
+# Volver a intentar el despliegue
+cd ~/gestor-lab-backend
+docker-compose up -d --build
+```
+
+### `the attribute version is obsolete`
+
+**Qué significa:** Es solo una **advertencia**, no un error. Las versiones nuevas de Docker Compose ya no usan la línea `version: '3.8'` al inicio del archivo. Puedes ignorarla o eliminar esa línea de `docker-compose.yml`.
 
 ---
 
