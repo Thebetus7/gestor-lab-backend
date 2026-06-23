@@ -102,50 +102,101 @@ volumes:
 
 ---
 
-## 3. Instalar Docker y Docker Compose en la EC2
+## 3. Instalar Docker, Buildx y Docker Compose en la EC2
 
-Conéctate por SSH a la EC2 y ejecuta:
+Conéctate por SSH a la EC2 y ejecuta los pasos en orden.
+
+> **¿Por qué Buildx es obligatorio?**  
+> En **Amazon Linux 2023**, el paquete `docker` trae Buildx **0.12.1**, pero Docker Compose moderno exige **Buildx 0.17.0 o superior** para compilar imágenes (`docker-compose up --build`).  
+> El paquete `docker-buildx-plugin` **no existe** en los repositorios de Amazon Linux 2023 (`No match for argument: docker-buildx-plugin`). Por eso hay que instalar Buildx **manualmente** en todos los servidores nuevos.
+
+### 3.1 — Instalar Docker y Git
 
 ```bash
 # Actualizar el sistema
 sudo dnf update -y
 
-# Instalar Docker, Buildx (requerido para compilar imágenes) y Git
-sudo dnf install docker docker-buildx-plugin git -y
+# Instalar Docker y Git (NO incluye Buildx compatible con Compose)
+sudo dnf install docker git -y
 
-# Iniciar e instalar el servicio de Docker al arranque
+# Iniciar Docker y habilitarlo al arranque del servidor
 sudo systemctl start docker
 sudo systemctl enable docker
 
-# Agregar tu usuario al grupo docker (para no usar sudo en cada comando)
+# Permitir que ec2-user use Docker sin sudo
 sudo usermod -aG docker ec2-user
 ```
-> [!IMPORTANT]
-> Para aplicar el cambio de grupo de Docker puedes:
-> 1. Cerrar la conexión SSH actual ejecutando `exit` y conectarte de nuevo.
-> 2. **O ejecutar en la terminal activa:** `newgrp docker` (esto aplicará los permisos de forma inmediata en la sesión actual).
 
-### Instalar Docker Compose:
+> [!IMPORTANT]
+> Para aplicar el grupo `docker` en tu sesión actual:
+> 1. Cierra SSH con `exit` y vuelve a conectarte, **o**
+> 2. Ejecuta: `newgrp docker`
+
+### 3.2 — Instalar Docker Buildx (obligatorio en Amazon Linux 2023)
+
+```bash
+# Crear carpeta de plugins de Docker CLI
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+
+# Descargar Buildx 0.19.3 (compatible con Docker Compose actual)
+sudo curl -L "https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64" \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+```
+
+**Verificar que la versión es correcta** (debe ser **0.17.0 o superior**):
+
+```bash
+docker buildx version
+```
+
+**Salida esperada:**
+
+```text
+github.com/docker/buildx v0.19.3 ...
+```
+
+**Si aún muestra `0.12.1`**, Docker está usando el Buildx viejo del paquete `docker`. Fuerza el plugin nuevo:
+
+```bash
+export DOCKER_CLI_PLUGIN_EXTRA_DIRS=/usr/local/lib/docker/cli-plugins
+docker buildx version
+```
+
+Para que persista en futuras sesiones SSH, agrégalo al perfil del usuario:
+
+```bash
+echo 'export DOCKER_CLI_PLUGIN_EXTRA_DIRS=/usr/local/lib/docker/cli-plugins' >> ~/.bashrc
+source ~/.bashrc
+docker buildx version
+```
+
+> **No continúes** al paso 4 si `docker buildx version` sigue mostrando menos de `0.17.0`. Sin esto, `docker-compose up -d --build` fallará con:  
+> `compose build requires buildx 0.17.0 or later`
+
+### 3.3 — Instalar Docker Compose
+
 ```bash
 # Descargar Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
+  -o /usr/local/bin/docker-compose
 
-# Asignar permisos de ejecución
 sudo chmod +x /usr/local/bin/docker-compose
 
-# Verificar versiones
+# Verificar instalación completa
+docker --version
 docker-compose --version
 docker buildx version
 ```
 
-> Si `docker buildx version` falla o muestra una versión menor a `0.17.0`, instala Buildx manualmente:
-> ```bash
-> sudo mkdir -p /usr/local/lib/docker/cli-plugins
-> sudo curl -L "https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64" \
->   -o /usr/local/lib/docker/cli-plugins/docker-buildx
-> sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
-> docker buildx version
-> ```
+**Checklist antes de desplegar** (los tres deben responder sin error):
+
+| Comando | Qué validar |
+|---|---|
+| `docker --version` | Docker instalado |
+| `docker-compose --version` | Compose instalado |
+| `docker buildx version` | Versión **≥ 0.17.0** (ideal: `v0.19.3`) |
 
 ---
 
@@ -156,11 +207,17 @@ docker buildx version
    git clone <URL_DEL_REPOSITORIO> gestor-lab-backend
    cd gestor-lab-backend
    ```
-2. Levanta los contenedores en segundo plano (background):
+2. **Confirma que Buildx está listo** (solo la primera vez o si ves el error de buildx):
+   ```bash
+   docker buildx version
+   ```
+   Debe mostrar `v0.17.0` o superior. Si no, vuelve a la [sección 3.2](#32--instalar-docker-buildx-obligatorio-en-amazon-linux-2023).
+
+3. Levanta los contenedores en segundo plano (background):
    ```bash
    docker-compose up -d --build
    ```
-3. Ejecuta las migraciones, carga los usuarios semilla y recopila estáticos dentro del contenedor de Django:
+4. Ejecuta las migraciones, carga los usuarios semilla y recopila estáticos dentro del contenedor de Django:
    ```bash
    # Correr migraciones de base de datos
    docker-compose exec web python manage.py migrate
@@ -182,26 +239,42 @@ docker buildx version
 
 ### `compose build requires buildx 0.17.0 or later`
 
-**Qué significa:** Docker Compose intentó **construir la imagen** de tu backend (`build: .` en `docker-compose.yml`), pero el servidor no tiene **Docker Buildx** instalado o la versión es muy antigua. Sin Buildx, el build no puede continuar y los contenedores no se levantan.
+**Qué significa:** Docker Compose intentó **construir la imagen** del backend (`build: .` en `docker-compose.yml`), pero Buildx no cumple el mínimo requerido (**0.17.0**). En Amazon Linux 2023 es muy común tener **0.12.1** por defecto.
 
-**Cómo solucionarlo** (ejecuta en la EC2):
+**Causa habitual en Amazon Linux 2023:**
+- `sudo dnf install docker-buildx-plugin` → falla con `No match for argument`
+- `docker buildx version` → muestra `0.12.1`
+
+**Solución** (ejecuta en la EC2):
 
 ```bash
-# Opción A: paquete de Amazon Linux (recomendado)
-sudo dnf install docker-buildx-plugin -y
-
-# Opción B: si la opción A no funciona, instalar Buildx manualmente
+# 1. Instalar Buildx actualizado manualmente
 sudo mkdir -p /usr/local/lib/docker/cli-plugins
 sudo curl -L "https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64" \
   -o /usr/local/lib/docker/cli-plugins/docker-buildx
 sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 
-# Verificar que Buildx quedó instalado (debe mostrar v0.17.0 o superior)
+# 2. Verificar versión (debe ser >= 0.17.0)
 docker buildx version
 
-# Volver a intentar el despliegue
+# 3. Si sigue en 0.12.1, forzar el plugin nuevo
+export DOCKER_CLI_PLUGIN_EXTRA_DIRS=/usr/local/lib/docker/cli-plugins
+echo 'export DOCKER_CLI_PLUGIN_EXTRA_DIRS=/usr/local/lib/docker/cli-plugins' >> ~/.bashrc
+docker buildx version
+
+# 4. Reiniciar Docker y reintentar despliegue
+sudo systemctl restart docker
 cd ~/gestor-lab-backend
 docker-compose up -d --build
+```
+
+**Plan B** (si Compose sigue fallando al build):
+
+```bash
+cd ~/gestor-lab-backend
+docker build -t gestor-lab-backend-web .
+docker-compose up -d
+docker-compose ps
 ```
 
 ### `the attribute version is obsolete`
@@ -231,37 +304,256 @@ docker-compose up -d
 
 ## 🔄 Actualizar el Proyecto en Producción (Desplegar Nuevos Cambios)
 
-Con Docker, actualizar tu aplicación en producción se reduce a reconstruir los contenedores:
+Cuando modificas código en tu PC y quieres que esos cambios se reflejen en AWS, el flujo es:
 
-1. **Subir los cambios a tu repositorio Git (En tu PC local):**
-   ```bash
-   git add .
-   git commit -m "Actualización de backend con Docker"
-   git push origin main
-   ```
+1. **Subes el código a GitHub** desde tu computadora.
+2. **Entras al servidor AWS por SSH** y descargas ese código nuevo.
+3. **Reconstruyes los contenedores Docker** para que usen el código actualizado.
+4. **Ejecutas migraciones** si cambiaste la base de datos.
 
-2. **Descargar los cambios y recompilar (En el Servidor AWS por SSH):**
-   Conéctate al servidor, navega a la carpeta y haz pull de los cambios:
-   ```bash
-   cd /home/ec2-user/gestor-lab-backend
-   git pull origin main
-   ```
+> **Importante:** Los pasos de la sección **A** los haces en tu PC. Los de la sección **B** los haces **dentro del servidor AWS**, después de conectarte por SSH.
 
-3. **Reconstruir y levantar los contenedores (En el Servidor AWS):**
-   Usa Docker Compose para reconstruir la imagen web con el nuevo código y levantar la app sin borrar el volumen de base de datos PostgreSQL:
-   ```bash
-   docker-compose up -d --build
-   ```
+---
 
-4. **Correr migraciones dentro del contenedor (En el Servidor AWS):**
-   Si modificaste modelos de datos en Django (`models.py`), ejecuta las migraciones correspondientes dentro del contenedor levantado:
-   ```bash
-   docker-compose exec web python manage.py migrate
-   docker-compose exec web python manage.py collectstatic --noinput
-   ```
+### A) En tu PC local (antes de tocar el servidor)
 
-5. **Limpiar imágenes obsoletas para liberar espacio (Opcional):**
-   Compilar nuevas imágenes deja imágenes viejas "huérfanas" en el disco de la EC2. Libera espacio ejecutando:
-   ```bash
-   docker system prune -f
-   ```
+Abre una terminal en la carpeta del proyecto backend en tu computadora:
+
+```bash
+cd gestor-lab-backend
+```
+
+Guarda tus cambios y súbelos a GitHub:
+
+```bash
+git add .
+git commit -m "Descripción breve de lo que cambiaste"
+git push origin main
+```
+
+**Qué hace cada comando:**
+- `git add .` → marca todos los archivos modificados para subirlos.
+- `git commit` → crea un "paquete" con esos cambios y un mensaje.
+- `git push` → envía ese paquete a GitHub.
+
+**Espera a que termine el push.** Solo cuando GitHub ya tenga el código nuevo, pasas al servidor.
+
+---
+
+### B) En el servidor AWS (paso a paso)
+
+#### B.1 — Conectarte al servidor por SSH
+
+Desde **tu PC**, abre una terminal y conéctate a la EC2.
+
+**En Windows (PowerShell):** ve a la carpeta donde guardaste el archivo `.pem`:
+
+```powershell
+cd C:\ruta\donde\guardaste\la\clave
+ssh -i gestorlab-backend-key.pem ec2-user@TU_IP_PUBLICA_EC2
+```
+
+**En Linux/Mac:**
+
+```bash
+ssh -i gestorlab-backend-key.pem ec2-user@TU_IP_PUBLICA_EC2
+```
+
+Reemplaza `TU_IP_PUBLICA_EC2` por la IP que ves en la consola de AWS (ejemplo: `54.123.45.67`).
+
+**Si la conexión es correcta**, verás un prompt como este:
+
+```text
+[ec2-user@ip-172-31-41-220 ~]$
+```
+
+Eso significa que **ya estás dentro del servidor**. Todo lo que escribas a partir de aquí se ejecuta en AWS, no en tu PC.
+
+---
+
+#### B.2 — Ir a la carpeta del proyecto en el servidor
+
+El repositorio se clonó en el primer despliegue. Entra a esa carpeta:
+
+```bash
+cd /home/ec2-user/gestor-lab-backend
+```
+
+**Verifica que estás en el lugar correcto:**
+
+```bash
+pwd
+ls
+```
+
+**Qué deberías ver:**
+- `pwd` debe mostrar: `/home/ec2-user/gestor-lab-backend`
+- `ls` debe listar archivos como `docker-compose.yml`, `Dockerfile`, `manage.py`, `core/`, etc.
+
+Si `ls` dice "No such file or directory", el proyecto no está ahí. Revisa si lo clonaste con otro nombre o en otra ruta.
+
+---
+
+#### B.3 — Descargar el código nuevo desde GitHub
+
+Con la carpeta correcta abierta, trae los cambios que subiste desde tu PC:
+
+```bash
+git pull origin main
+```
+
+**Qué hace:** compara el código del servidor con GitHub y actualiza los archivos locales del servidor.
+
+**Salida esperada si todo va bien:**
+
+```text
+Updating abc1234..def5678
+Fast-forward
+ usuarios/views.py | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+```
+
+**Si Git dice** `Already up to date`, el servidor ya tenía la última versión (quizá el `git push` desde tu PC no se completó).
+
+**Si Git pide usuario/contraseña** y falla, el repo puede ser privado. En ese caso configura acceso con token o SSH en el servidor (fuera del alcance de esta guía básica).
+
+---
+
+#### B.4 — Reconstruir y reiniciar los contenedores
+
+Sigue en la misma carpeta (`/home/ec2-user/gestor-lab-backend`).
+
+**Antes de construir**, confirma que Buildx es compatible (evita el error `compose build requires buildx 0.17.0 or later`):
+
+```bash
+docker buildx version
+```
+
+Debe mostrar **0.17.0 o superior**. Si muestra `0.12.1`, aplica la [sección 3.2](#32--instalar-docker-buildx-obligatorio-en-amazon-linux-2023) o la [solución de problemas](#compose-build-requires-buildx-0170-or-later) antes de continuar.
+
+Luego reconstruye y levanta los contenedores:
+
+```bash
+docker-compose up -d --build
+```
+
+**Qué hace cada parte:**
+- `up` → levanta (o reinicia) los contenedores.
+- `-d` → los deja corriendo en segundo plano (no bloquea la terminal).
+- `--build` → **vuelve a construir la imagen** del backend con el código que acabas de bajar.
+
+**Salida esperada si todo va bien:**
+
+```text
+[+] Building ...
+[+] Running 2/2
+ ✔ Container gestorlab_db       Running
+ ✔ Container gestorlab_backend  Started
+```
+
+**Verifica que los contenedores están activos:**
+
+```bash
+docker-compose ps
+```
+
+Deberías ver `gestorlab_db` y `gestorlab_backend` con estado `Up`.
+
+> **Nota:** Este comando **no borra la base de datos**. Los datos de PostgreSQL viven en un volumen Docker (`postgres_data`) y se conservan entre actualizaciones.
+
+---
+
+#### B.5 — Aplicar migraciones y archivos estáticos (dentro del contenedor)
+
+Estos comandos se ejecutan **dentro del contenedor `web`**, no directamente en el servidor. Docker los envía al contenedor de Django por ti.
+
+**Siempre ejecuta `migrate`** después de actualizar (aunque no hayas tocado modelos, no hace daño):
+
+```bash
+docker-compose exec web python manage.py migrate
+```
+
+**Qué hace:** aplica cambios pendientes en la estructura de la base de datos (nuevas tablas, columnas, etc.).
+
+**Recopila archivos estáticos** (CSS, JS admin, etc.):
+
+```bash
+docker-compose exec web python manage.py collectstatic --noinput
+```
+
+**Solo si agregaste o modificaste usuarios semilla**, ejecuta también:
+
+```bash
+docker-compose exec web python manage.py seed_users
+```
+
+| Comando | ¿Cuándo ejecutarlo? |
+|---|---|
+| `migrate` | **Siempre** después de cada actualización |
+| `collectstatic` | **Siempre** después de cada actualización |
+| `seed_users` | Solo si cambiaste `seed_users.py` o es un despliegue inicial |
+
+---
+
+#### B.6 — Comprobar que la actualización funcionó
+
+**1. Revisa los logs del backend** (busca errores):
+
+```bash
+docker-compose logs --tail=50 web
+```
+
+Si ves tracebacks de Python o errores de conexión a la BD, algo falló en el paso anterior.
+
+**2. Prueba la API desde tu navegador o Postman:**
+
+```text
+http://TU_IP_PUBLICA_EC2/api/
+```
+
+**3. (Opcional) Verifica que responde desde el propio servidor:**
+
+```bash
+curl -I http://localhost/api/
+```
+
+Deberías recibir una respuesta HTTP (por ejemplo `200 OK` o `404` si no hay ruta raíz, pero **no** un error de conexión).
+
+**4. Salir del servidor cuando termines:**
+
+```bash
+exit
+```
+
+Eso cierra la sesión SSH y vuelves a la terminal de tu PC.
+
+---
+
+#### B.7 — Limpiar espacio en disco (opcional)
+
+Cada `--build` deja imágenes Docker viejas ocupando espacio. En una EC2 pequeña (`t2.micro`) conviene limpiar de vez en cuando:
+
+```bash
+docker system prune -f
+```
+
+**Qué hace:** elimina imágenes y capas que ya no usa ningún contenedor. **No borra** el volumen de PostgreSQL ni los contenedores en ejecución.
+
+---
+
+### Resumen rápido (solo servidor AWS)
+
+Copia y pega esto en orden **después de conectarte por SSH** y **después de haber hecho `git push` desde tu PC**:
+
+```bash
+cd /home/ec2-user/gestor-lab-backend
+git pull origin main
+docker buildx version
+docker-compose up -d --build
+docker-compose exec web python manage.py migrate
+docker-compose exec web python manage.py collectstatic --noinput
+docker-compose ps
+docker-compose logs --tail=30 web
+```
+
+> Si `docker buildx version` muestra menos de `0.17.0`, **no ejecutes** `docker-compose up -d --build` todavía. Corrige Buildx primero (sección 3.2).
