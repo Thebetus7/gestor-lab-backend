@@ -1,6 +1,9 @@
 from django.contrib.auth.models import AbstractUser
+from django.db import models
 
 class CustomUser(AbstractUser):
+    is_deleted = models.BooleanField(default=False)
+
     def has_role(self, role_name):
         return self.groups.filter(name=role_name).exists()
         

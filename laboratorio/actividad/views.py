@@ -1,12 +1,13 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Actividad, ActividadTarea
+from .models import Actividad, ActividadTarea, Incidencia
 from .serializers import (
     ActividadListSerializer,
     ActividadDetailSerializer,
     ActividadCreateSerializer,
     ActividadTareaSerializer,
+    IncidenciaSerializer,
 )
 
 class ActividadViewSet(viewsets.ModelViewSet):
@@ -47,3 +48,12 @@ class ActividadTareaViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data)
+
+
+class IncidenciaViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = Incidencia.objects.all().order_by('-id')
+    serializer_class = IncidenciaSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(id_user=self.request.user)

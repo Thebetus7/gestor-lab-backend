@@ -1,30 +1,6 @@
 from rest_framework import serializers
-from .models import Actividad, Tarea, ActividadTarea, UsuarioActividad
+from ..models import Actividad, Tarea, ActividadTarea, UsuarioActividad
 from laboratorio.laboratorio.models import Laboratorio
-
-class TareaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Tarea
-        fields = ['id', 'tarea', 'id_actividad']
-
-class ActividadTareaSerializer(serializers.ModelSerializer):
-    tarea_descripcion = serializers.CharField(source='id_tarea.tarea', read_only=True)
-    
-    class Meta:
-        model = ActividadTarea
-        fields = ['id', 'id_activ', 'id_tarea', 'tarea_descripcion', 'observacion', 'estado']
-
-class ActividadListSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Actividad
-        fields = ['id', 'descripcion', 'tiempo', 'is_active']
-
-class ActividadDetailSerializer(serializers.ModelSerializer):
-    actividad_tareas = ActividadTareaSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Actividad
-        fields = ['id', 'descripcion', 'tiempo', 'is_active', 'actividad_tareas']
 
 class ActividadCreateSerializer(serializers.Serializer):
     descripcion = serializers.CharField(required=False, allow_blank=True)
