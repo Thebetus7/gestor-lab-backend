@@ -55,3 +55,37 @@ class UbicacionViewSet(viewsets.ViewSet):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def chatbot_context(request):
+    try:
+        labs = Laboratorio.objects.filter(is_deleted=False)
+        context_lines = []
+        context_lines.append("INFORMACIÓN DEL SISTEMA DE GESTORLAB:")
+        context_lines.append(f"Cantidad total de laboratorios activos: {labs.count()}")
+        
+        for lab in labs:
+            context_lines.append(f"\n- Laboratorio: {lab.nombre}")
+            context_lines.append(f"  Capacidad: {lab.capacidad} personas")
+            context_lines.append(f"  Distribución: {lab.filas} filas x {lab.columnas} columnas")
+            
+            # Accesorios
+            accesorios_list = [a.nombre for a in lab.accesorios.all() if not a.is_deleted]
+            if accesorios_list:
+                context_lines.append(f"  Accesorios disponibles: {', '.join(accesorios_list)}")
+            else:
+                context_lines.append("  Accesorios disponibles: Ninguno")
+                
+            # Máquinas
+            maquinas_count = lab.maquinas.count()
+            context_lines.append(f"  Máquinas instaladas: {maquinas_count}")
+            
+        context_text = "\n".join(context_lines)
+        return Response({"context": context_text}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
