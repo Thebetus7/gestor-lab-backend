@@ -1,0 +1,58 @@
+INFORMACIÓN INSTITUCIONAL Y TÉCNICA OFICIAL DE NEXACORE TECH Y LA PLATAFORMA NEXACORE
+
+1. SOBRE LA EMPRESA (NEXACORE TECH)
+- Nombre de la Empresa: NexaCore Tech (o NexaCore).
+- Origen: Establecida y conformada por estudiantes de la Universidad Autónoma Gabriel René Moreno (UAGRM) en Santa Cruz de la Sierra, Bolivia.
+- Slogan: "Desarrollo ágil para un mundo conectado."
+- Misión: Liderar la industria del desarrollo de software y tecnología a través de soluciones de alta calidad que cumplen rigurosos estándares. Proveer software de alta calidad que permita a los usuarios gestionar sus operaciones de manera efectiva, garantizando confiabilidad, seguridad y satisfacción a través de un enfoque de mejora continua.
+- Visión: Convertirse en un referente global en el desarrollo de software y aplicaciones, siendo reconocidos por un enfoque creativo, metodologías colaborativas y orientación hacia resultados excepcionales.
+- Socios, Propietarios y Equipo de Desarrollo:
+  * Ybanera Herrera Edberto (Scrum Master y Desarrollador) - Registro Universitario: 219059829. Correo de contacto directo: edybanera@gmail.com. Teléfono: +591 77389330.
+  * Jarpa Muñoz Juan Noe (Product Owner y Desarrollador) - Registro Universitario: 219068887. Correo de contacto directo: juan.noe.jarpa.18@gmail.com. Teléfono: +591 71064272.
+- Docente de Supervisión Académica: Ing. Rolando Martínez (Materia: Ingeniería de Software II, Carrera de Ingeniería en Sistemas, UAGRM).
+
+2. SOBRE EL PRODUCTO: NEXACORE
+- Descripción del Producto: Sistema integral multiplataforma (Web y Móvil) diseñado para la automatización, gestión y control de laboratorios de computación (especialmente para la F.I.C.C.T. de la UAGRM).
+- Problemas clave que resuelve:
+  * Conflictos de reservas: Cruces de horarios por falta de validación centralizada en tiempo real.
+  * Control ineficiente de asistencia: Registro lento y poco fiable de la asistencia de auxiliares y docentes.
+  * Descontrol de inventario: Falta de trazabilidad sobre el estado físico de los equipos y del software en cada máquina.
+  * Soporte técnico lento: Retrasos en el reporte y resolución de incidencias por falta de canales de reporte directo.
+  * Carencia de métricas: Falta de indicadores clave (ocupación, fallas frecuentes, agilidad del personal).
+- Funcionalidades Principales de la Plataforma:
+  * Control de Asistencia Digital: Registro estricto de entrada y salida verificado mediante geocercas (GPS) y validación por QR e ID del dispositivo móvil del auxiliar, previniendo fraudes.
+  * Gestión de Reservas en Tiempo Real: Calendario interactivo por laboratorio que valida la disponibilidad de forma instantánea para evitar conflictos y agendar reservas, sincronizado automáticamente con la API de Google Calendar.
+  * Matriz Física de PCs e Incidencias: Mapeo y registro del estado individual de cada máquina (fallo físico, error de software, operativo). Permite reportar incidencias tocando la PC correspondiente en una matriz visual en la app móvil.
+  * Asistente Inteligente para Auxiliares: Asistente conversacional de soporte que responde consultas de auxiliares sobre disponibilidad, reservas y soporte técnico general de equipos.
+  * Módulo de Business Intelligence (BI): Dashboards con indicadores clave para directivos y jefes de laboratorio (tasa de ocupación, asistencia promedio, tiempos medios de resolución de incidencias MTTR, y rendimiento operativo del personal técnico).
+  * Notificaciones Automáticas: Confirmaciones, alertas operativas y recordatorios vía notificaciones push en tiempo real.
+
+3. ARQUITECTURA Y STACK TECNOLÓGICO (ESPECIFICACIONES TÉCNICAS)
+La arquitectura de NEXACORE se estructura bajo un patrón MVC de 3 capas distribuido en microservicios:
+- Backend:
+  * Lenguaje de programación: Python.
+  * Framework principal: Django (arquitectura estricta de microservicios).
+  * Base de Datos: PostgreSQL (con extensión para operaciones geoespaciales para la delimitación de geocercas/GPS).
+- Frontend Web:
+  * Framework: Next.js (React) con TypeScript (paneles de administración y dashboards de BI).
+- Frontend Móvil:
+  * Framework: Flutter (con lenguaje Dart) para dispositivos móviles Android/iOS (utilizado por auxiliares).
+- Integraciones y APIs Externas:
+  * Google Location API (Geocercas y GPS).
+  * Google Gemini API (Asistente IA del Chatbot).
+  * Google Calendar API (Agendamiento y sincronización de reservas).
+  * Firebase Cloud Messaging - FCM (Envío automático de notificaciones push en tiempo real).
+- Infraestructura y Despliegue en AWS (Amazon Web Services):
+  * Servidor Web/Backend: Django en contenedores con AWS ECS Fargate o Elastic Beanstalk (PHP/Python).
+  * Base de datos: Amazon RDS para PostgreSQL (con almacenamiento SSD y Multi-AZ).
+  * Frontend Web: S3 para alojamiento estático + CloudFront para distribución segura (HTTPS).
+  * Control de Versiones: Git y GitHub.
+  * Gestión de Proyectos: Jira y Trello.
+
+4. ESQUEMA DE COSTOS Y MONETIZACIÓN (B2B SAAS)
+El software se comercializa bajo un modelo de Licenciamiento Institucional y Mantenimiento B2B para universidades o institutos tecnológicos:
+- Setup Inicial y Licencia de Implementación: $2,500 USD (o 35,000 Bs) de pago único. Incluye despliegue del sistema en servidores cloud, configuración inicial de la base de datos PostgreSQL, delimitación de geocercas para laboratorios, mapeo físico del catálogo de PCs y creación de cuentas.
+- Suscripción Mensual (Plan Profesional): $300 USD / mes (o 3,500 Bs / mes). Incluye laboratorios y auxiliares ilimitados, acceso completo a dashboards de Business Intelligence (BI), soporte técnico 24/7 y la integración continua con la API de IA (Gemini).
+- Capacitaciones anuales o presenciales: $500 USD.
+- Servicios Adicionales: Auditorías de hardware y reportes personalizados.
+- Retorno de Inversión (ROI): El modelo financiero proyecta un punto de equilibrio superable al décimo mes de operaciones, demostrando la viabilidad comercial y la reducción drástica de costos operativos por fallas no reportadas en equipos.

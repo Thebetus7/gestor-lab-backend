@@ -63,78 +63,17 @@ from rest_framework.permissions import AllowAny
 @permission_classes([AllowAny])
 def chatbot_context(request):
     try:
-        from laboratorio.reserva.models import Reserva, Docente
-        from laboratorio.actividad.models.incidencia import Incidencia
-        from laboratorio.actividad.models.actividad import Actividad
-        from django.contrib.auth import get_user_model
-        from django.utils import timezone
+        from django.conf import settings
+        import os
         
-        User = get_user_model()
-        labs = Laboratorio.objects.filter(is_deleted=False)
-        context_lines = []
-        context_lines.append("INFORMACIÓN GLOBAL DEL SISTEMA DE GESTORLAB:")
+        file_path = os.path.join(settings.BASE_DIR, 'gestorlab-info.txt')
         
-        # 1. Información de Usuarios (Personal)
-        context_lines.append("\n--- PERSONAL Y USUARIOS DEL SISTEMA ---")
-        usuarios = User.objects.filter(is_deleted=False, is_active=True)
-        for u in usuarios:
-            roles = ", ".join(u.groups.values_list('name', flat=True)) if u.groups.exists() else "Sin rol"
-            context_lines.append(f"- Usuario: {u.username} (Nombre: {u.first_name} {u.last_name}) - Roles: {roles}")
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                context_text = f.read()
+        else:
+            context_text = "La información institucional de GestorLab no está disponible."
             
-        # 2. Información de Docentes
-        context_lines.append("\n--- DOCENTES REGISTRADOS ---")
-        docentes = Docente.objects.all()
-        docentes_nombres = [d.nombre for d in docentes]
-        context_lines.append(f"Total: {len(docentes_nombres)}. Lista: {', '.join(docentes_nombres) if docentes_nombres else 'Ninguno'}")
-        
-        # 3. Información de Actividades de Mantenimiento
-        context_lines.append("\n--- ACTIVIDADES DE MANTENIMIENTO GLOBALES ---")
-        actividades = Actividad.objects.filter(is_active=True)
-        for a in actividades:
-            tiempo_str = a.tiempo.strftime('%H:%M') if a.tiempo else "No especificado"
-            context_lines.append(f"- Actividad: {a.descripcion} (Tiempo estimado: {tiempo_str})")
-
-        # 4. Información de Laboratorios, Reservas e Incidencias
-        context_lines.append("\n--- ESTADO DE LOS LABORATORIOS ---")
-        context_lines.append(f"Cantidad total de laboratorios activos: {labs.count()}")
-        
-        for lab in labs:
-            context_lines.append(f"\n* Laboratorio: {lab.nombre} *")
-            context_lines.append(f"  Capacidad: {lab.capacidad} personas")
-            context_lines.append(f"  Distribución: {lab.filas} filas x {lab.columnas} columnas")
-            
-            # Accesorios
-            accesorios_list = [a.nombre for a in lab.accesorios.all() if not a.is_deleted]
-            if accesorios_list:
-                context_lines.append(f"  Accesorios disponibles: {', '.join(accesorios_list)}")
-            else:
-                context_lines.append("  Accesorios disponibles: Ninguno")
-                
-            # Máquinas
-            maquinas_count = lab.maquinas.count()
-            context_lines.append(f"  Máquinas instaladas: {maquinas_count}")
-            
-            # Reservas futuras o de hoy en este laboratorio
-            reservas = Reserva.objects.filter(laboratorio=lab, fecha__gte=timezone.now().date()).order_by('fecha', 'hora_inicio')
-            if reservas.exists():
-                context_lines.append("  Reservas programadas:")
-                for r in reservas:
-                    context_lines.append(f"    - {r.fecha} de {r.hora_inicio.strftime('%H:%M')} a {r.hora_fin.strftime('%H:%M')} - Docente: {r.docente_nombre} - Motivo: {r.motivo}")
-            else:
-                context_lines.append("  Reservas programadas: Ninguna en los próximos días")
-                
-            # Incidencias no resueltas en este laboratorio
-            incidencias = Incidencia.objects.filter(id_lab=lab, resuelto=False)
-            if incidencias.exists():
-                context_lines.append("  Incidencias / Problemas reportados (SIN RESOLVER):")
-                for i in incidencias:
-                    acc_nombre = f" en accesorio {i.id_accesorio.nombre}" if i.id_accesorio else ""
-                    prioridad = f"[{i.prioridad}]" if i.prioridad else ""
-                    context_lines.append(f"    - {prioridad} {i.descripcion}{acc_nombre}")
-            else:
-                context_lines.append("  Incidencias: Todo funcionando correctamente")
-                
-        context_text = "\n".join(context_lines)
         return Response({"context": context_text}, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
