@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 
 class Asistencia(models.Model):
+    fecha = models.DateField(null=True, blank=True)
     entrada = models.TimeField(null=True, blank=True)
     salida = models.TimeField(null=True, blank=True)
     id_user = models.ForeignKey(
@@ -19,4 +20,4 @@ class Asistencia(models.Model):
         verbose_name_plural = 'Asistencias'
 
     def __str__(self):
-        return f'Asistencia #{self.id}'
+        return f'Asistencia #{self.id} - User: {self.id_user} - Fecha: {self.fecha}'
